@@ -1,9 +1,3 @@
-# Astra Launcher — one-click build.
-# Put this file at .github/workflows/astra-build.yml in your fork of PrismLauncher,
-# and put astra-launcher.patch in the repository root. Then: Actions → "Astra Build" → Run workflow.
-# It takes the exact Prism commit the patch was made against, applies the Astra changes,
-# builds with Prism's own CI steps and uploads the installers/zips as downloadable artifacts.
-
 name: Astra Build
 
 on:
@@ -51,8 +45,14 @@ jobs:
       CMAKE_PRESET: ${{ matrix.cmake-preset }}
 
     steps:
+      # Windows runners convert line endings to CRLF on checkout, which corrupts the patch
+      - name: Keep LF line endings
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+
       - name: Checkout Prism (base commit)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: PrismLauncher/PrismLauncher
           ref: 7de6e963c258827971640ba8b41c95659a0ba962
@@ -60,7 +60,7 @@ jobs:
           fetch-depth: 1
 
       - name: Checkout this repo (for the patch)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: _astra
           sparse-checkout: astra-launcher.patch
@@ -68,7 +68,9 @@ jobs:
 
       - name: Apply Astra changes
         run: |
-          git apply --binary --whitespace=nowarn _astra/astra-launcher.patch
+          tr -d '\r' < _astra/astra-launcher.patch > astra.patch
+          git apply --binary --whitespace=nowarn astra.patch
+          rm -f astra.patch
           rm -rf _astra
           grep -q "Astra Launcher" program_info/CMakeLists.txt && echo "Astra patch applied"
 
@@ -116,3 +118,4 @@ jobs:
           build-type: ${{ steps.setup-dependencies.outputs.build-type }}
           artifact-name: ${{ matrix.artifact-name }}
           qt-version: ${{ steps.setup-dependencies.outputs.qt-version }}
+
